@@ -63,14 +63,17 @@ func (h *oauthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 // codes, retrieves the scopes from the identity provider, issues a cookie, and
 // redirects to the original URL.
 func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
-	// TODO: extract authorization-code from request
-	tok, err := h.Exchange(oauth2.NoContext, "authorization-code")
+	tok, err := h.Exchange(oauth2.NoContext, req.URL.Query().Get("code"))
 	if err != nil {
 		http.Error(w, err.Error(), 401)
 		return
 	}
 	client := h.Client(context.Background(), tok)
-	client.Get("...") // TODO: get scopes?
+	_, err := client.Get("...") // TODO: get scopes?
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	// TODO: encrypt and issue cookie
 	home := "TODO: extract from state"
