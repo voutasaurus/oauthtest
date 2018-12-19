@@ -92,15 +92,21 @@ func (h *oauthHandler) handleHome(w http.ResponseWriter, r *http.Request) {
 // requires authorization. For POSTS you should just fail and expect the user
 // to log on before posting.
 func (h *oauthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	c, _ := r.Cookie("session")
-	if c != nil {
+	_, err := getCookie(r, h.domain, h.cookieKey)
+	if err == nil {
+		// If cookie is present and good, redirect to home as
+		// authentication is complete.
 		http.Redirect(w, r, "/", 307)
 		return
 	}
-	// TODO: stuff current URL into state (so we can redirect back there
-	// when we're done)
-	// TODO: ensure protocol and domain are specified in the URL
-	// r.URL.String()
+
+	if err != http.ErrNoCookie {
+		// If cookie is present but bad, delete it now.
+		deleteCookie(w, h.domain)
+	}
+
+	// Now cookie is not present, procede with OAuth
+
 	origin := r.URL.String()
 	b, err := encryptBytes(h.stateKey, []byte(origin))
 	if err != nil {
@@ -210,6 +216,18 @@ func setCookie(w http.ResponseWriter, domain string, key *[32]byte, in []byte) {
 		Domain:   domain,
 		Secure:   true, // DON'T SEND UNENCRYPTED
 		HttpOnly: true, // NO CLIENT SIDE SHENANIGANS
+	})
+}
+
+func deleteCookie(w http.ResponseWriter, domain string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		Path:     "/",
+		Domain:   domain,
+		Secure:   true,
+		HttpOnly: true,
 	})
 }
 
