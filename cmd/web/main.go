@@ -77,7 +77,7 @@ type oauthHandler struct {
 }
 
 func (h *oauthHandler) handleHome(w http.ResponseWriter, r *http.Request) {
-	id, err := getCookie(r, h.cookieKey)
+	id, err := getCookie(r, h.domain, h.cookieKey)
 	if err != nil {
 		http.Error(w, err.Error(), 401)
 		return
@@ -154,7 +154,7 @@ var (
 	errCookieDomain  = errors.New("cookie used for wrong domain")
 )
 
-func getCookie(r *http.Request, key *[32]byte) ([]byte, error) {
+func getCookie(r *http.Request, domain string, key *[32]byte) ([]byte, error) {
 	c, err := r.Cookie("session")
 	if err != nil {
 		return nil, err
@@ -174,12 +174,13 @@ func getCookie(r *http.Request, key *[32]byte) ([]byte, error) {
 	}
 	b = b[8:]
 
-	dcheck := []byte(c.Domain)
+	dcheck := []byte(domain)
 	if !bytes.Equal(b[:len(dcheck)], dcheck) {
 		return nil, errCookieDomain
 	}
+	b = b[len(dcheck):]
 
-	return b[len(dcheck):], nil
+	return b, nil
 }
 
 func setCookie(w http.ResponseWriter, domain string, key *[32]byte, in []byte) {
