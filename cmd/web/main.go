@@ -20,6 +20,8 @@ func main() {
 		logger.Fatalf("expected environment variable %q to be set", key)
 	}
 
+	addr := ":" + env.Get("PORT").WithDefault("8080")
+
 	// Your credentials should be obtained from the Google
 	// Developer Console (https://console.developers.google.com).
 	h := &oauthHandler{oauth2.Config{
@@ -34,8 +36,8 @@ func main() {
 	mux.HandleFunc("/login", h.handleLogin)
 	mux.HandleFunc("/oauth-google-redirect", h.handleRedirect)
 
-	logger.Println("serving on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	logger.Println("serving on ", addr)
+	log.Fatal(http.ListenAndServe(addr, mux))
 }
 
 type oauthHandler struct {
