@@ -1,4 +1,4 @@
-// +heroku goVersion 1.11
+// +heroku goVersion go1.11
 // +heroku install ./cmd/...
 
 module github.com/voutasaurus/oauthtest
