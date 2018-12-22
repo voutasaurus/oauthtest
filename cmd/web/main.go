@@ -14,6 +14,8 @@ import (
 
 	"github.com/voutasaurus/env"
 
+	"gopkg.in/square/go-jose.v2/jwt"
+
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -144,22 +146,25 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := tok.Extra("id_token")
-	if v == nil {
+	idv := tok.Extra("id_token")
+	if idv == nil {
 		http.Error(w, "id_token not found in oauth", 401)
 		return
 	}
 
-	switch x := v.(type) {
-	default:
-		h.log.Printf("unexpected token type %T\n", x)
-	case string:
-		h.log.Printf("token string: %q", x)
-	case []byte:
-		h.log.Printf("token []byte: %q", string(x))
+	ids, ok := idv.(string)
+	if !ok {
+		http.Error(w, "id_token not string", 401)
+		return
 	}
 
-	// TODO: parse v to extract id (this is supposed to be a JWT)
+	// TODO: parse string ids into JWT
+
+	t1, e1 := jwt.ParseEncrypted(ids)
+	t2, e2 := jwt.ParseSigned(ids)
+
+	h.log.Printf("t1=%v, e1=%v, t2=%v, e2=%v", t1, e1, t2, e2)
+
 	id := "TODO"
 	// TODO: store user profile details using id
 
