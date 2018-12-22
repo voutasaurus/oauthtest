@@ -58,6 +58,8 @@ func main() {
 		cookieKey: stateKey,
 
 		domain: env.Get("DOMAIN").Required(fatal),
+
+		log: logger,
 	}
 
 	mux := http.NewServeMux()
@@ -74,6 +76,7 @@ type oauthHandler struct {
 	stateKey  *[32]byte
 	cookieKey *[32]byte
 	domain    string
+	log       *log.Logger
 }
 
 func (h *oauthHandler) handleHome(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +150,16 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: parse v to extract id
+	switch x := v.(type) {
+	default:
+		h.log.Printf("unexpected token type %T\n", x)
+	case string:
+		h.log.Printf("token string: %q", x)
+	case []byte:
+		h.log.Printf("token []byte: %q", string(x))
+	}
+
+	// TODO: parse v to extract id (this is supposed to be a JWT)
 	id := "TODO"
 	// TODO: store user profile details using id
 
@@ -181,16 +193,17 @@ func getCookie(r *http.Request, domain string, key *[32]byte) ([]byte, error) {
 	b = b[8:]
 
 	dcheck := []byte(domain)
-	if !bytes.Equal(b[:len(dcheck)], dcheck) {
+	bb := bytes.Split(b, []byte(" "))
+	if !bytes.Equal(bb[0], dcheck) {
 		return nil, errCookieDomain
 	}
-	b = b[len(dcheck):]
+	b = bytes.Join(bb[1:], []byte(" "))
 
 	return b, nil
 }
 
 func setCookie(w http.ResponseWriter, domain string, key *[32]byte, in []byte) {
-	dcheck := []byte(domain)
+	dcheck := append([]byte(domain), byte(' '))
 	tb := make([]byte, len(in)+8+len(dcheck))
 
 	// Ensure user doesn't mess with the time
