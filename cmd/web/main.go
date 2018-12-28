@@ -6,10 +6,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -174,14 +173,21 @@ func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
 	if code := res.StatusCode; code < 200 || code > 299 {
 		return nil, fmt.Errorf("userinfo lookup error: %s, status: %d", res.Status, res.StatusCode)
 	}
-	debug := new(bytes.Buffer)
-	body := io.TeeReader(res.Body, debug)
-	log.Println("DEBUG: userinfo response", debug.String())
-	var v struct{}
-	if err := json.NewDecoder(body).Decode(&v); err != nil {
-		return nil, err
-	}
-	return &v, nil
+
+	b, err := ioutil.ReadAll(res.Body)
+	log.Println(string(b), err)
+
+	/*
+		debug := new(bytes.Buffer)
+		body := io.TeeReader(res.Body, debug)
+		log.Println("DEBUG: userinfo response", debug.String())
+		var v struct{}
+		if err := json.NewDecoder(body).Decode(&v); err != nil {
+			return nil, err
+		}
+	*/
+
+	return nil, nil
 }
 
 var (
