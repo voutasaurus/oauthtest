@@ -164,14 +164,12 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make(map[string]interface{})
+	out := jwt.Claims{}
 	if err := t.Claims("", &out); err != nil {
 		http.Error(w, "id_token claims not extracted: "+err.Error(), 401)
 		return
 	}
-	for k, v := range out {
-		h.log.Println(k, v)
-	}
+	h.log.Println(out)
 
 	id := "TODO"
 	// TODO: store user profile details using id
