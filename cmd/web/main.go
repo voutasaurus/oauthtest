@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -147,20 +146,33 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = getUserInfo(tok)
+	up, err := getUserInfo(tok)
 	if err != nil {
 		http.Error(w, "userinfo request error: "+err.Error(), 500)
 		return
 	}
 
-	id := "TODO"
+	id := "google_" + up.Sub
 	// TODO: store user profile details using id
 
 	setCookie(w, h.domain, h.cookieKey, []byte(id))
 	http.Redirect(w, r, home, 307)
 }
 
-func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
+type profile struct {
+	Sub           string `json:"sub"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Profile       string `json:"profile"`
+	Picture       string `json:"picture"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	Gender        string `json:"gender"`
+	Locale        string `json:"locale"`
+}
+
+func getUserInfo(tok *oauth2.Token) (*profile, error) {
 	req, err := http.NewRequest("GET", "https://openidconnect.googleapis.com/v1/userinfo", nil)
 	if err != nil {
 		return nil, err
@@ -174,15 +186,10 @@ func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
 	if code := res.StatusCode; code < 200 || code > 299 {
 		return nil, fmt.Errorf("userinfo lookup error: %s, status: %d", res.Status, res.StatusCode)
 	}
-
-	debug := new(bytes.Buffer)
-	body := io.TeeReader(res.Body, debug)
-	var v struct{}
-	if err := json.NewDecoder(body).Decode(&v); err != nil {
+	var v profile
+	if err := json.NewDecoder(res.Body).Decode(&v); err != nil {
 		return nil, err
 	}
-	log.Println("DEBUG: userinfo response", debug.String())
-
 	return &v, nil
 }
 
