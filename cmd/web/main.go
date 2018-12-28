@@ -6,9 +6,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -160,7 +161,7 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
-	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v3/userinfo", nil)
+	req, err := http.NewRequest("GET", "https://openidconnect.googleapis.com/v1/userinfo", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,20 +175,15 @@ func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
 		return nil, fmt.Errorf("userinfo lookup error: %s, status: %d", res.Status, res.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(res.Body)
-	log.Println(string(b), err)
+	debug := new(bytes.Buffer)
+	body := io.TeeReader(res.Body, debug)
+	log.Println("DEBUG: userinfo response", debug.String())
+	var v struct{}
+	if err := json.NewDecoder(body).Decode(&v); err != nil {
+		return nil, err
+	}
 
-	/*
-		debug := new(bytes.Buffer)
-		body := io.TeeReader(res.Body, debug)
-		log.Println("DEBUG: userinfo response", debug.String())
-		var v struct{}
-		if err := json.NewDecoder(body).Decode(&v); err != nil {
-			return nil, err
-		}
-	*/
-
-	return nil, nil
+	return &v, nil
 }
 
 var (
