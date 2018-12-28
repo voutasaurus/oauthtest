@@ -158,12 +158,20 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: parse string ids into JWT
+	t, err := jwt.ParseSigned(ids)
+	if err != nil {
+		http.Error(w, "id_token not parsable JWS: "+err.Error(), 401)
+		return
+	}
 
-	t1, e1 := jwt.ParseEncrypted(ids)
-	t2, e2 := jwt.ParseSigned(ids)
-
-	h.log.Printf("t1=%v, e1=%v, t2=%v, e2=%v", t1, e1, t2, e2)
+	out := make(map[string]interface{})
+	if err := t.Claims("", &out); err != nil {
+		http.Error(w, "id_token claims not extracted: "+err.Error(), 401)
+		return
+	}
+	for k, v := range out {
+		h.log.Println(k, v)
+	}
 
 	id := "TODO"
 	// TODO: store user profile details using id
