@@ -177,11 +177,11 @@ func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
 
 	debug := new(bytes.Buffer)
 	body := io.TeeReader(res.Body, debug)
-	log.Println("DEBUG: userinfo response", debug.String())
 	var v struct{}
 	if err := json.NewDecoder(body).Decode(&v); err != nil {
 		return nil, err
 	}
+	log.Println("DEBUG: userinfo response", debug.String())
 
 	return &v, nil
 }
