@@ -6,15 +6,16 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/voutasaurus/env"
-
-	"gopkg.in/square/go-jose.v2/jwt"
 
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/oauth2"
@@ -48,7 +49,7 @@ func main() {
 			ClientID:     env.Get("OAUTH_CLIENT_ID").Required(fatal),
 			ClientSecret: env.Get("OAUTH_CLIENT_SECRET").Required(fatal),
 			RedirectURL:  "https://" + env.Get("DOMAIN").Required(fatal) + "/oauth-google-redirect",
-			Scopes:       []string{"profile", "email"},
+			Scopes:       []string{"openid", "profile", "email"},
 			Endpoint:     google.Endpoint,
 		},
 		stateKey: stateKey,
@@ -146,36 +147,41 @@ func (h *oauthHandler) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idv := tok.Extra("id_token")
-	if idv == nil {
-		http.Error(w, "id_token not found in oauth", 401)
-		return
-	}
-
-	ids, ok := idv.(string)
-	if !ok {
-		http.Error(w, "id_token not string", 401)
-		return
-	}
-
-	t, err := jwt.ParseSigned(ids)
+	_, err = getUserInfo(tok)
 	if err != nil {
-		http.Error(w, "id_token not parsable JWS: "+err.Error(), 401)
+		http.Error(w, "userinfo request error: "+err.Error(), 500)
 		return
 	}
-
-	out := jwt.Claims{}
-	if err := t.Claims("", &out); err != nil {
-		http.Error(w, "id_token claims not extracted: "+err.Error(), 401)
-		return
-	}
-	h.log.Println(out)
 
 	id := "TODO"
 	// TODO: store user profile details using id
 
 	setCookie(w, h.domain, h.cookieKey, []byte(id))
 	http.Redirect(w, r, home, 307)
+}
+
+func getUserInfo(tok *oauth2.Token) (*struct{}, error) {
+	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v3/userinfo", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if code := res.StatusCode; code < 200 || code > 299 {
+		return nil, fmt.Errorf("userinfo lookup error: %s, status: %d", res.Status, res.StatusCode)
+	}
+	debug := new(bytes.Buffer)
+	body := io.TeeReader(res.Body, debug)
+	log.Println("DEBUG: userinfo response", debug.String())
+	var v struct{}
+	if err := json.NewDecoder(body).Decode(&v); err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 var (
